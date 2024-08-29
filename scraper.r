@@ -25,9 +25,18 @@ for(a_tag in title){
   #parse through connected page
   CIShtml_2 <- read.html(linked_url)
 
+  a_tags_linked = html_nodes(CIShtml_2, .reference-list div) %>% html_text()
   #find all linked pages with CVE in title of a tag
+
+  #grepl is equivalent of x in y or contains
+  if (grepl("CVE", a_tags_linked)){
+    #get only substring of CVE (possibly use gregexpr)
+    }
   }
 
 
 #Date Parser
 date = html_nodes(CIShtml, .c-list-date) %>% html_text()
+
+#After fixing the above, the scrapper must loop through every page, save information to a table (possibly use data frame) and
+#export to excel
