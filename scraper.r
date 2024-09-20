@@ -49,6 +49,9 @@ for(a_tag in title){
 #Date Parser
 date = html_nodes(CIShtml, ".c-list-date") %>% html_text()
 print(date)
-
+#put info into data frame
+#table = data.frame(title, date, all_results, stringsAsFactors = FALSE)
+#After fixing the above, the scrapper must save information to a table (possibly use data frame) and
+#export to excel
 #After fixing the above, the scrapper must loop through every page, save information to a table (possibly use data frame) and
 #export to excel
