@@ -1,5 +1,6 @@
 library(rvest)
 library(tidyverse)
+library(openxlsx)
 
 #Other scaper is called scraper.py
 #For MSISAC parse through advisory page
@@ -7,6 +8,7 @@ library(tidyverse)
 #Take URL and put into rvest, which is beautifulsoup equivalent. It will read the url
 
 url <- "https://www.cisecurity.org/advisory"
+cve_list <- list()
 
 #You may want to start looping through pages from here
 #Equivalent of response.content
@@ -16,6 +18,7 @@ CIShtml <- read_html(url)
 #Equivalent of .find_all and .get text in one line
 title = html_nodes(CIShtml, ".c-list-link") %>% html_text()
 print(title)
+
 #CVE Parser
 
 for(a_tag in title){
@@ -35,12 +38,15 @@ for(a_tag in title){
     for(a_tag_linked in a_tags_linked){
       #grepl is equivalent of x in y or contains
       if (grepl("CVE", a_tag_linked)){
-      #get only substring of CVE (possibly use gregexpr)
+      #get only substring of individual CVE (possibly use gregexpr)
       cvematch <- gregexpr("CVE-\\d+-\\d+", a_tags_linked)
       result <- regmatches(a_tags_linked, cvematch)
-      print(result)
-      } else{
-        print("No CVE Found")
+      #get all results per link
+      if(length(result) > 0){
+        cve_list <- c(cve_list, unlist(result))
+      }
+      
+      #print(result)
       }
       
   }
@@ -50,5 +56,22 @@ for(a_tag in title){
 date = html_nodes(CIShtml, ".c-list-date") %>% html_text()
 print(date)
 
-#After fixing the above, the scrapper must loop through every page, save information to a table (possibly use data frame) and
+#adjust all rows
+#may have to use lapply guru99.com has a good tutorial for this in order to get 
+#all cves to correct box per title
+#if (length(cve_list) != length(title)){
+#  cve_list <- cve_list[100:min(length(cve_list), length(title))]
+#} else if (length(cve_list) != length(date)){
+#  cve_list <- cve_list[100:min(length(cve_list), length(date))]
+#}
+#put info into data frame
+table <- data.frame(
+  Title = title,
+  Date = date,
+  CVE = apply(cve_list, paste, collapse = ", "),
+  stringsAsFactors = FALSE
+  )
+#After fixing the above, the scrapper must save information to a table (possibly use data frame) and
 #export to excel
+#write.xlsx(table, file = "CVE_Test-Table.xlsx")
+
