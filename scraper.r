@@ -1,6 +1,8 @@
 library(rvest)
 library(tidyverse)
 library(openxlsx)
+library(dplyr)
+
 
 #Other scaper is called scraper.py
 #For MSISAC parse through advisory page
@@ -19,6 +21,10 @@ CIShtml <- read_html(url)
 title = html_nodes(CIShtml, ".c-list-link") %>% html_text()
 print(title)
 
+#Date Parser
+date = html_nodes(CIShtml, ".c-list-date") %>% html_text()
+print(date)
+
 #CVE Parser
 
 for(a_tag in title){
@@ -26,9 +32,15 @@ for(a_tag in title){
   link = html_nodes(CIShtml, ".c-list-link") %>% html_attr("href")
   linked_url <- paste0("https://www.cisecurity.org", link)
   
+  df1 <- data.frame(
+    Title = title,
+    Date = date,
+    CVE = NA,
+    stringsAsFactors = FALSE
+  )
   
-  for(link in linked_url){
-    file <- file.path(link)
+  for(i in seq_along(linked_url)){
+    file <- file.path(linked_url[i])
     #parse through each connected page
     CIShtml_2 <- read_html(file)
   
@@ -43,34 +55,21 @@ for(a_tag in title){
       result <- regmatches(a_tags_linked, cvematch)
       #get all results per link
       if(length(result) > 0){
-        cve_list <- c(cve_list, unlist(result))
-      }
-      
+       df1$CVE[i] <- paste(unlist(result), collapse = ",")
       #print(result)
+      } else{
+        df1$CVE[i] <- NA
       }
       
   }
 }
 }
-#Date Parser
-date = html_nodes(CIShtml, ".c-list-date") %>% html_text()
-print(date)
 
-#adjust all rows
-#may have to use lapply guru99.com has a good tutorial for this in order to get 
-#all cves to correct box per title
-#if (length(cve_list) != length(title)){
-#  cve_list <- cve_list[100:min(length(cve_list), length(title))]
-#} else if (length(cve_list) != length(date)){
-#  cve_list <- cve_list[100:min(length(cve_list), length(date))]
-#}
 #put info into data frame
-table <- data.frame(
-  Title = title,
-  Date = date,
-  CVE = apply(cve_list, paste, collapse = ", "),
-  stringsAsFactors = FALSE
-  )
+
+
+
+}
 #After fixing the above, the scrapper must save information to a table (possibly use data frame) and
 #export to excel
 #write.xlsx(table, file = "CVE_Test-Table.xlsx")
