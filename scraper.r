@@ -1,6 +1,8 @@
 library(rvest)
 library(tidyverse)
 library(openxlsx)
+library(dplyr)
+
 
 #Other scaper is called scraper.py
 #For MSISAC parse through advisory page
@@ -44,8 +46,6 @@ for(a_tag in title){
       #get all results per link
       if(length(result) > 0){
         cve_list <- c(cve_list, unlist(result))
-      }
-      
       #print(result)
       }
       
@@ -58,19 +58,30 @@ print(date)
 
 #adjust all rows
 #may have to use lapply guru99.com has a good tutorial for this in order to get 
-#all cves to correct box per title
+#all cves to correct box per title or use aggregate
+
+
 #if (length(cve_list) != length(title)){
 #  cve_list <- cve_list[100:min(length(cve_list), length(title))]
 #} else if (length(cve_list) != length(date)){
 #  cve_list <- cve_list[100:min(length(cve_list), length(date))]
 #}
 #put info into data frame
-table <- data.frame(
+
+
+df1 <- data.frame(
   Title = title,
   Date = date,
-  CVE = apply(cve_list, paste, collapse = ", "),
+  CVE = sapply(cve_list, paste, collapse = ", "),
   stringsAsFactors = FALSE
-  )
+)
+
+df1 <- df1 %>%
+  group_by(Title) %>%
+  #select(Date) %>%
+  summarise(CVE = paste(CVE, collapse = " "))
+
+}
 #After fixing the above, the scrapper must save information to a table (possibly use data frame) and
 #export to excel
 #write.xlsx(table, file = "CVE_Test-Table.xlsx")
