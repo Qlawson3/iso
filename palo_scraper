@@ -1,0 +1,34 @@
+library(rvest)
+library(tidyverse)
+library(openxlsx)
+library(dplyr)
+
+#For Palo Alto parse through advisory page
+
+#Take URL and put into rvest, which is beautifulsoup equivalent. It will read the url
+
+url <- "https://security.paloaltonetworks.com/"
+#put info into data frame
+df1 <- data.frame()
+all_links <- c()
+allTitles <- c()
+count = 0
+
+CIShtml <- read_html(url)
+
+#Title Parser
+#Equivalent of .find_all and .get text in one line
+titles = html_nodes(CIShtml, ".tbl salist wide") %>% html_text("href")
+
+for (title in titles) {
+
+if (grepl("CVE", title)){
+allTitles[count] <- title
+count++
+
+}
+
+print(allTitles)
+
+
+}
