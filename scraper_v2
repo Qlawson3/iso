@@ -10,7 +10,7 @@ library(dplyr)
 url <- "https://www.cisecurity.org/advisory"
 #put info into data frame
 df1 <- data.frame()
-  
+all_links <- c()
 
 for (page_result in seq(from = 1, to = 3)){
 url = paste0("https://www.cisecurity.org/advisory?page=", page_result)
@@ -35,14 +35,13 @@ discovered <- regmatches(date, datematch)
 
 #CVE Parser
 
-for(a_tag in title){
-  #gather href links for each advisory on each page
-  link = html_nodes(CIShtml, ".c-list-link") %>% html_attr("href")
-  linked_url <- paste0("https://www.cisecurity.org", link)
- 
+#gather href links for each advisory on each page
+link = html_nodes(CIShtml, ".c-list-link") %>% html_attr("href")
+linked_url <- paste0("https://www.cisecurity.org", link)
+all_links <- c(all_links, linked_url)
 
 
-}
+
 
  df1 <- rbind(df1, data.frame(
     Key = NA,
@@ -59,16 +58,14 @@ for(a_tag in title){
 
 }
 
-  for(i in seq_along(linked_url)){
-    file <- file.path(linked_url[i])
+  for(i in seq_along(all_links)){
+    file <- file.path(all_links[i])
     #parse through each connected page
     CIShtml_2 <- read_html(file)
     impact = html_nodes(CIShtml_2, ".risk-rating, h5") %>% html_text()
-    impact_list <- list(impact)
-    df1$Impact[i] <- impact_list
+    df1$Impact[i] <- paste(impact, collapse = ";")
     desc =  html_nodes(CIShtml_2, "p, h, li") %>% html_text()
-    desc_list <- list(desc) 
-    df1$Description[i] <- desc_list
+    df1$Description[i] <- paste(desc, collapse = "")
     a_tags_linked = html_nodes(CIShtml_2, ".reference-list div") %>% html_text()
     #print(impact)
 
