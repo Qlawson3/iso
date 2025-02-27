@@ -11,6 +11,8 @@ url <- "https://www.cisecurity.org/advisory"
 #put info into data frame
 df1 <- data.frame()
 all_links <- c()
+imp_list <- c()
+
 
 for (page_result in seq(from = 1, to = 3)){
 url = paste0("https://www.cisecurity.org/advisory?page=", page_result)
@@ -82,8 +84,8 @@ all_links <- c(all_links, linked_url)
     df1$Discovered_On[i] <- paste(date, collapse = "")
 
     impact = html_nodes(CIShtml_2, ".risk-rating, h5") %>% html_text()
-    df1$Impact[i] <- paste(impact, collapse = " ")
-   
+    imp_list <- append(imp_list, paste(impact, collapse = " "))
+    print(imp_list)
 
     desc =  html_nodes(CIShtml_2, "p, h, li") %>% html_text()
     desc <- str_remove_all(desc, "Stay aware of emerging cyber, physical, and information threats with ThreatWA™ \\|  Subscribe Now")
@@ -116,7 +118,20 @@ all_links <- c(all_links, linked_url)
 
 }
 
-print(df1$Impact[1])
+for(i in seq_along(imp_list)){
+	result = case_when(
+		grepl("Government: LOW", imp_list[i]) ~ "LOW",
+		grepl("Government: MEDIUM", imp_list[i]) ~ "MEDIUM",
+		grepl("Government: HIGH", imp_list[i]) ~ "HIGH",
+		grepl("Critical", title[i]) ~ "HIGHEST"
+
+	
+	)
+	print(title[i])
+	df1$Impact[i] <- paste(result)
+
+}
+print(title)
 
 #After fixing the above, the scrapper must save information to a table (possibly use data frame) and
 #export to excel
