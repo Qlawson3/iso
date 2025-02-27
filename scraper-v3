@@ -82,7 +82,8 @@ all_links <- c(all_links, linked_url)
     df1$Discovered_On[i] <- paste(date, collapse = "")
 
     impact = html_nodes(CIShtml_2, ".risk-rating, h5") %>% html_text()
-    df1$Impact[i] <- paste(impact, collapse = ";")
+    df1$Impact[i] <- paste(impact, collapse = " ")
+   
 
     desc =  html_nodes(CIShtml_2, "p, h, li") %>% html_text()
     desc <- str_remove_all(desc, "Stay aware of emerging cyber, physical, and information threats with ThreatWA™ \\|  Subscribe Now")
@@ -95,15 +96,13 @@ all_links <- c(all_links, linked_url)
     for(a_tag_linked in a_tags_linked){
       
       #grepl is equivalent of x in y or contains
-      if (grepl("CVE", a_tag_linked)){
+      if (grepl("\\d+-\\d+", a_tag_linked)){
       #get only substring of individual CVE (possibly use gregexpr)
-      cvematch <- gregexpr("CVE-\\d+-\\d+", a_tags_linked)
+      cvematch <- gregexpr("20\\d+-\\d+", a_tags_linked)
       result <- regmatches(a_tags_linked, cvematch)
-	#grab improperly formatted cves as well
-	##nf_cvematch
       #get all results per link
       if(length(result) > 0){
-       df1$CVE[i] <- paste(unlist(result), collapse = ",")
+       df1$CVE[i] <- paste0("CVE-", unlist(result), collapse = ",")
       
       } else{
         df1$CVE[i] <- NA
@@ -117,11 +116,11 @@ all_links <- c(all_links, linked_url)
 
 }
 
+print(df1$Impact[1])
 
 #After fixing the above, the scrapper must save information to a table (possibly use data frame) and
 #export to excel
-
-print(df1$Description[1])
 df1[is.na(df1)]<-''
 write.xlsx(unique(df1), 'CVE_Test-Table-2.xlsx', overwrite = TRUE)
+
 
