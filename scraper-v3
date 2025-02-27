@@ -1,0 +1,127 @@
+library(rvest)
+library(tidyverse)
+library(openxlsx)
+library(dplyr)
+
+#For MSISAC parse through advisory page
+
+#Take URL and put into rvest, which is beautifulsoup equivalent. It will read the url
+
+url <- "https://www.cisecurity.org/advisory"
+#put info into data frame
+df1 <- data.frame()
+all_links <- c()
+
+for (page_result in seq(from = 1, to = 3)){
+url = paste0("https://www.cisecurity.org/advisory?page=", page_result)
+print(url)
+#You may want to start looping through pages from here
+#Equivalent of response.content
+CIShtml <- read_html(url)
+
+#Title Parser
+#Equivalent of .find_all and .get text in one line
+title = html_nodes(CIShtml, ".c-list-link") %>% html_text()
+
+
+#Date Parser
+#date = html_nodes(CIShtml, ".c-list-date") %>% html_text()
+
+
+
+#next action plan field, and maybe flesh out rest of fields, also scrape all pages
+
+
+#CVE Parser
+
+#gather href links for each advisory on each page
+link = html_nodes(CIShtml, ".c-list-link") %>% html_attr("href")
+linked_url <- paste0("https://www.cisecurity.org", link)
+all_links <- c(all_links, linked_url)
+
+
+
+
+ df1 <- rbind(df1, data.frame(
+    Key = NA,
+    Summary = title,
+    Description = NA,
+    Status = NA,
+    Due_date = NA,
+    Priority = "Medium",
+    Source =  NA,
+    Source_type = "Label",
+    Source_ID = NA,
+    Affected_Programs = "Virginia Housing InfoSec Program v2.0",
+    Assignee = NA,
+    Business_Owner = NA,
+    Executive_Sponsor = NA,
+    Impact = NA,
+    Effort = "Medium",
+    Discovered_On = NA,
+    Closed_On = NA,
+    Action_Plan = NA,
+    Members = "Sequoia Lawson (sequoia.lawson@virginiahousing.com), , Annette Frye (annette.frye@virginiahousing.com), 
+    Brie Carter (brittney.carter@virginiahousing.com), Clifton Dickens (clifton.dickens@virginiahousing.com), Clifton Dickens (clifton.dickens@virginiahousing.com), Melia Hill (melia.hill@virginiahousing.com), Raymond Kline (raymond.kline@virginiahousing.com)",
+    CVE = NA,
+    Departments = NA,
+    Detection_Method_Source = "Advisory",
+    stringsAsFactors = FALSE
+  )) 
+
+
+
+}
+
+  for(i in seq_along(all_links)){
+    file <- file.path(all_links[i])
+    #parse through each connected page
+    CIShtml_2 <- read_html(file)
+
+    date = html_nodes(CIShtml_2, ".advisory-date-issued") %>% html_text()
+    df1$Discovered_On[i] <- paste(date, collapse = "")
+
+    impact = html_nodes(CIShtml_2, ".risk-rating, h5") %>% html_text()
+    df1$Impact[i] <- paste(impact, collapse = ";")
+
+    desc =  html_nodes(CIShtml_2, "p, h, li") %>% html_text()
+    desc <- str_remove_all(desc, "Stay aware of emerging cyber, physical, and information threats with ThreatWA™ \\|  Subscribe Now")
+    df1$Description[i] <- paste(desc[-1], collapse = "\n")
+
+    a_tags_linked = html_nodes(CIShtml_2, ".reference-list div") %>% html_text()
+    #print(impact)
+
+    #find all linked pages with CVE in title of a tag
+    for(a_tag_linked in a_tags_linked){
+      
+      #grepl is equivalent of x in y or contains
+      if (grepl("CVE", a_tag_linked)){
+      #get only substring of individual CVE (possibly use gregexpr)
+      cvematch <- gregexpr("CVE-\\d+-\\d+", a_tags_linked)
+      result <- regmatches(a_tags_linked, cvematch)
+	#grab improperly formatted cves as well
+	##nf_cvematch
+      #get all results per link
+      if(length(result) > 0){
+       df1$CVE[i] <- paste(unlist(result), collapse = ",")
+      
+      } else{
+        df1$CVE[i] <- NA
+      }
+      
+  }
+
+
+}
+
+
+}
+
+
+#After fixing the above, the scrapper must save information to a table (possibly use data frame) and
+#export to excel
+
+print(df1$Description[1])
+df1[is.na(df1)]<-''
+write.xlsx(unique(df1), 'CVE_Test-Table-2.xlsx', overwrite = TRUE)
+
