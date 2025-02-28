@@ -11,6 +11,7 @@ url <- "https://www.cisecurity.org/advisory"
 #put info into data frame
 df1 <- data.frame()
 all_links <- c()
+all_titles <- c()
 imp_list <- c()
 
 
@@ -24,7 +25,8 @@ CIShtml <- read_html(url)
 #Title Parser
 #Equivalent of .find_all and .get text in one line
 title = html_nodes(CIShtml, ".c-list-link") %>% html_text()
-
+all_titles <- append(all_titles, title)
+print(all_titles)
 
 #Date Parser
 #date = html_nodes(CIShtml, ".c-list-date") %>% html_text()
@@ -68,6 +70,7 @@ all_links <- c(all_links, linked_url)
     CVE = NA,
     Departments = NA,
     Detection_Method_Source = "Advisory",
+    Exploited = NA,
     stringsAsFactors = FALSE
   )) 
 
@@ -85,11 +88,18 @@ all_links <- c(all_links, linked_url)
 
     impact = html_nodes(CIShtml_2, ".risk-rating, h5") %>% html_text()
     imp_list <- append(imp_list, paste(impact, collapse = " "))
-    print(imp_list)
+   
 
     desc =  html_nodes(CIShtml_2, "p, h, li") %>% html_text()
     desc <- str_remove_all(desc, "Stay aware of emerging cyber, physical, and information threats with ThreatWA™ \\|  Subscribe Now")
     df1$Description[i] <- paste(desc[-1], collapse = "\n")
+
+    if(grepl("no reports", df1$Description[i])){
+    		df1$Exploited[i] <- "No"
+
+    } else {
+		df1$Exploited[i] <- "Yes"
+    }
 
     a_tags_linked = html_nodes(CIShtml_2, ".reference-list div") %>% html_text()
     #print(impact)
@@ -120,22 +130,23 @@ all_links <- c(all_links, linked_url)
 
 for(i in seq_along(imp_list)){
 	result = case_when(
+
 		grepl("Government: LOW", imp_list[i]) ~ "LOW",
 		grepl("Government: MEDIUM", imp_list[i]) ~ "MEDIUM",
-		grepl("Government: HIGH", imp_list[i]) ~ "HIGH",
-		grepl("Critical", title[i]) ~ "HIGHEST"
-
+		grepl("Government: HIGH", imp_list[i]) && !(grepl("Critical", all_titles[i])) ~ "HIGH",
+		grepl("Critical", all_titles[i]) &&  grepl("Government: HIGH", imp_list[i]) ~ "HIGHEST",
+		TRUE ~ "UNKNOWN"
+		
 	
 	)
-	print(title[i])
+	
 	df1$Impact[i] <- paste(result)
 
 }
-print(title)
 
+print(df1$Exploited[2])
+print(df1$Exploited[1])
 #After fixing the above, the scrapper must save information to a table (possibly use data frame) and
 #export to excel
 df1[is.na(df1)]<-''
 write.xlsx(unique(df1), 'CVE_Test-Table-2.xlsx', overwrite = TRUE)
-
-
