@@ -2,6 +2,7 @@ library(rvest)
 library(tidyverse)
 library(openxlsx)
 library(dplyr)
+library(stringr)
 
 #For MSISAC parse through advisory page
 
@@ -12,6 +13,7 @@ url <- "https://www.cisecurity.org/advisory"
 df1 <- data.frame()
 all_links <- c()
 all_titles <- c()
+all_desc <- c()
 imp_list <- c()
 
 
@@ -26,7 +28,7 @@ CIShtml <- read_html(url)
 #Equivalent of .find_all and .get text in one line
 title = html_nodes(CIShtml, ".c-list-link") %>% html_text()
 all_titles <- append(all_titles, title)
-print(all_titles)
+
 
 #Date Parser
 #date = html_nodes(CIShtml, ".c-list-date") %>% html_text()
@@ -53,7 +55,6 @@ all_links <- c(all_links, linked_url)
     Status = NA,
     Due_date = NA,
     Priority = "Medium",
-    Source =  NA,
     Source_type = "Label",
     Source_ID = NA,
     Affected_Programs = "Virginia Housing InfoSec Program v2.0",
@@ -92,14 +93,30 @@ all_links <- c(all_links, linked_url)
 
     desc =  html_nodes(CIShtml_2, "p, h, li") %>% html_text()
     desc <- str_remove_all(desc, "Stay aware of emerging cyber, physical, and information threats with ThreatWA™ \\|  Subscribe Now")
+    all_desc <- append(all_desc, paste(desc, collapse = ""))
     df1$Description[i] <- paste(desc[-1], collapse = "\n")
 
+    source = case_when(
+		grepl("Palo Alto PAN-OS", all_desc[i]) ~ "Networking",
+		grepl("Apple products", all_desc[i]) ~ "Apple",
+		grepl("Adobe products", all_desc[i]) ~ "Adobe",
+		grepl("Microsoft products", all_desc[i]) ~ "Microsoft",
+		grepl("Google", all_desc[i]) && !(grepl("Mozilla products", all_desc[i])) ~ "Google",
+		grepl("Mozilla products", all_desc[i]) ~ "Miscellaneous",
+		TRUE ~ "Miscellaneous"
+    )
+    
+    df1$Source_ID[i] <- source
+    
+
+    #Exploited Parser
     if(grepl("no reports", df1$Description[i])){
     		df1$Exploited[i] <- "No"
 
     } else {
 		df1$Exploited[i] <- "Yes"
     }
+    
 
     a_tags_linked = html_nodes(CIShtml_2, ".reference-list div") %>% html_text()
     #print(impact)
@@ -144,8 +161,15 @@ for(i in seq_along(imp_list)){
 
 }
 
-print(df1$Exploited[2])
-print(df1$Exploited[1])
+for(i in seq_along(all_desc)){
+      action_plan <-  sub(".*We recommend the following actions be taken", "We recommend the following actions be taken", all_desc[i])
+	
+	df1$Action_Plan[i] <-  action_plan
+
+}
+
+
+
 #After fixing the above, the scrapper must save information to a table (possibly use data frame) and
 #export to excel
 df1[is.na(df1)]<-''
