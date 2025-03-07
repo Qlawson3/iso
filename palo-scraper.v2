@@ -15,7 +15,7 @@ imp_list <- c()
 imp_clean <- c()
 
 
-for(page_result in seq(from = 1, to = 3)){
+for(page_result in seq(from = 1, to = 2)){
 url = paste0("https://security.paloaltonetworks.com/?page=", page_result)
 print(url)
 
@@ -118,23 +118,21 @@ for(i in seq_along(all_links)){
 	impact_text = html_nodes(CIShtml_2, "h3") %>% html_text()
 
 	impact = case_when(
-		grepl("LOW", impact_text) ~ "LOW",
-		grepl("MEDIUM", impact_text) ~ "MEDIUM",
-		grepl("HIGH", impact_text) ~ "HIGH",
-		grepl("CRITICAL", impact_text) ~ "HIGHEST",
-		grepl("Informational", all_titles[i]) ~ "LOWEST"
+		grepl("LOW", impact_text, perl = TRUE) && !(grepl("Informational", df1$Summary[i], perl = TRUE)) ~ "LOW",
+		grepl("MEDIUM", impact_text, perl = TRUE) && !(grepl("Informational", df1$Summary[i], perl = TRUE))~ "MEDIUM",
+		grepl("HIGH", impact_text, perl = TRUE) && !(grepl("Informational", df1$Summary[i], perl = TRUE)) ~ "HIGH",
+		grepl("CRITICAL", impact_text, perl = TRUE) && !(grepl("Informational", df1$Summary[i], perl = TRUE)) ~ "HIGHEST",
+		grepl("Informational", df1$Summary[i], perl = TRUE) ~ "LOWEST",
+		TRUE ~ ""
+		
 		
 	) 
+
 	
 	imp_list <- append(imp_list, impact)
-	imp_clean <- imp_list[!is.na(imp_list)]
-	for(i in seq_along(imp_clean)){
-		if(length(imp_clean[i]) > 0){
-			df1$Impact[i] <- paste(unlist(imp_clean[i]))
-		} 
-
-	}
-	print(all_titles[i])
+	
+	
+	
 	
 	#Date Parser
 
@@ -145,12 +143,19 @@ for(i in seq_along(all_links)){
 
 }
 
+imp_clean <- imp_list[!is.na(imp_list) & imp_list != ""]
+for(i in seq_along(imp_clean)){
+	if(length(imp_clean[i]) > 0){
+		df1$Impact[i] <- paste(unlist(imp_clean[i]))
+	} 
+
+}
+
+print(df1$Impact[26])
+print(df1$Summary[26])
 
 
 
-
-print(df1$Impact[31])
-print(df1$Summary[31])
 
 #export to excel
 df1[is.na(df1)]<-''
