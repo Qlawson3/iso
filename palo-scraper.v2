@@ -11,8 +11,8 @@ df1 <- data.frame()
 all_links <- c()
 all_titles <- c()
 clean_titles <- c()
-imp_list <- c()
-imp_clean <- c()
+
+
 
 
 for(page_result in seq(from = 1, to = 2)){
@@ -116,21 +116,24 @@ for(i in seq_along(all_links)){
 
 	#Impact Parser
 	impact_text = html_nodes(CIShtml_2, "h3") %>% html_text()
-
+	
+	if(length(impact_text) == 0){
+	impact <- ""
+	} else {
 	impact = case_when(
-		grepl("LOW", impact_text, perl = TRUE) && !(grepl("Informational", df1$Summary[i], perl = TRUE)) ~ "LOW",
-		grepl("MEDIUM", impact_text, perl = TRUE) && !(grepl("Informational", df1$Summary[i], perl = TRUE))~ "MEDIUM",
-		grepl("HIGH", impact_text, perl = TRUE) && !(grepl("Informational", df1$Summary[i], perl = TRUE)) ~ "HIGH",
-		grepl("CRITICAL", impact_text, perl = TRUE) && !(grepl("Informational", df1$Summary[i], perl = TRUE)) ~ "HIGHEST",
+		any(grepl("\nLOW", impact_text, perl = TRUE)) ~ "LOW",
+		any(grepl("\nMEDIUM", impact_text, perl = TRUE)) ~ "MEDIUM",
+		any(grepl("\nHIGH", impact_text, perl = TRUE))  ~ "HIGH",
+		any(grepl("\nCRITICAL", impact_text, perl = TRUE)) ~ "HIGHEST",
 		grepl("Informational", df1$Summary[i], perl = TRUE) ~ "LOWEST",
-		TRUE ~ ""
+		TRUE ~ "UNKNOWN"
 		
 		
 	) 
 
-	
-	imp_list <- append(imp_list, impact)
-	
+	}
+	df1$Impact[i] <- impact
+	print(paste("Impact text for", i, ":", impact_text, "Impact:", impact))
 	
 	
 	
@@ -143,16 +146,10 @@ for(i in seq_along(all_links)){
 
 }
 
-imp_clean <- imp_list[!is.na(imp_list) & imp_list != ""]
-for(i in seq_along(imp_clean)){
-	if(length(imp_clean[i]) > 0){
-		df1$Impact[i] <- paste(unlist(imp_clean[i]))
-	} 
 
-}
 
-print(df1$Impact[26])
-print(df1$Summary[26])
+print(df1$Impact[32])
+print(df1$Summary[32])
 
 
 
