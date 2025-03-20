@@ -207,20 +207,22 @@ for(i in seq_along(all_desc)){
 
 }
 
+
+writeData(wb, 'Sheet 1', unique(df1))
 ##Living Document
-if(length(df2) > 0){ #If Sheet 2 is not empty
+if(length(df2) > 0){ #If Sheet 2 is not empty, may be able to delete if
 
 	df2 <- read.xlsx(excel_file, sheet = 2)
-	df1 <- read.xlsx(excel_file, sheet = 1)
+	writeData(wb, 'Sheet 2', unique(df2))
 	#Compare new data with data in sheet 2 and only keep unique data
-	if(all(df1 %in% df2)){
+	if(any(df1[,20] %in% df2[,20])){
 		df1 <- anti_join(df1, df2, by = "CVE")
-
+		writeData(wb, 'Sheet 1', unique(df1))
 
 	}
 }
-writeData(wb, 'Sheet 1', unique(df1))
-writeData(wb, 'Sheet 2', unique(df2))
+
+
 saveWorkbook(wb, excel_file, overwrite = TRUE)
 
 
