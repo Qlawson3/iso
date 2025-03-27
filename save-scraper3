@@ -1,0 +1,247 @@
+library(rvest)
+library(tidyverse)
+library(openxlsx)
+library(dplyr)
+library(stringr)
+
+
+excel_file <- file.path("C:", "Users/lawsonsd/Documents", "CVE_Test-Table-New.xlsx")
+wb <- loadWorkbook(excel_file)
+
+#For MSISAC parse through advisory page
+
+#Take URL and put into rvest, which is beautifulsoup equivalent. It will read the url
+
+url <- "https://www.cisecurity.org/advisory"
+#put info into data frame
+df1 <- data.frame()
+df2 <- data.frame()
+dff <- data.frame()
+all_links <- c()
+all_titles <- c()
+all_desc <- c()
+imp_list <- c()
+
+
+for (page_result in seq(from = 1, to = 3)){
+url = paste0("https://www.cisecurity.org/advisory?page=", page_result)
+print(url)
+#You may want to start looping through pages from here
+#Equivalent of response.content
+CIShtml <- read_html(url)
+
+#Title Parser
+#Equivalent of .find_all and .get text in one line
+title = html_nodes(CIShtml, ".c-list-link") %>% html_text()
+all_titles <- append(all_titles, title)
+
+
+#Date Parser
+#date = html_nodes(CIShtml, ".c-list-date") %>% html_text()
+
+
+
+#next action plan field, and maybe flesh out rest of fields, also scrape all pages
+
+
+#CVE Parser
+
+#gather href links for each advisory on each page
+link = html_nodes(CIShtml, ".c-list-link") %>% html_attr("href")
+linked_url <- paste0("https://www.cisecurity.org", link)
+all_links <- c(all_links, linked_url)
+
+
+df2 <- data.frame(
+    Date_Entered = NA,
+    Summary = NA,
+    Description = NA,
+    Status = NA,
+    Due_date = NA,
+    Priority = NA,
+    Source = NA,
+    Source_type = NA,
+    Source_ID = NA,
+    Affected_Programs = NA,
+    Assignee = NA,
+    Business_Owner = NA,
+    Executive_Sponsor = NA,
+    Impact = NA,
+    Effort = NA,
+    Discovered_On = NA,
+    Closed_On = NA,
+    Action_Plan = NA,
+    Members = NA,
+    CVE = NA,
+    Departments = NA,
+    Detection_Method_Source = NA,
+    Exploited = NA,
+    Product_Type = NA,
+    stringsAsFactors = FALSE
+
+
+
+)
+
+ df1 <- rbind(df1, data.frame(
+    Key = NA,
+    Summary = title,
+    Description = NA,
+    Status = NA,
+    Due_date = NA,
+    Priority = "Medium",
+    Source = NA,
+    Source_type = "Label",
+    Source_ID = NA,
+    Affected_Programs = "Virginia Housing InfoSec Program",
+    Assignee = NA,
+    Business_Owner = NA,
+    Executive_Sponsor = NA,
+    Impact = NA,
+    Effort = "Medium",
+    Discovered_On = NA,
+    Closed_On = NA,
+    Action_Plan = NA,
+    Members = "Sequoia Lawson (sequoia.lawson@virginiahousing.com),
+    Brie Carter (brittney.carter@virginiahousing.com), Clifton Dickens (clifton.dickens@virginiahousing.com), Melia Hill (melia.hill@virginiahousing.com), Raymond Kline (raymond.kline@virginiahousing.com)",
+    CVE = NA,
+    Departments = NA,
+    Detection_Method_Source = "Other",
+    Exploited = NA,
+    Product_Type = NA,
+    stringsAsFactors = FALSE
+  )) 
+
+
+
+}
+
+
+
+  for(i in seq_along(all_links)){
+    file <- file.path(all_links[i])
+    #parse through each connected page
+    CIShtml_2 <- read_html(file)
+
+    date = html_nodes(CIShtml_2, ".advisory-date-issued") %>% html_text()
+    df1$Discovered_On[i] <- paste(date, collapse = "")
+
+    impact = html_nodes(CIShtml_2, ".risk-rating, h5") %>% html_text()
+    imp_list <- append(imp_list, paste(impact, collapse = " "))
+   
+
+    desc =  html_nodes(CIShtml_2, "p, h, li") %>% html_text()
+    desc <- str_remove_all(desc, "Stay aware of emerging cyber, physical, and information threats with ThreatWA™ \\|  Subscribe Now")
+    all_desc <- append(all_desc, paste(desc, collapse = ""))
+    df1$Description[i] <- paste(desc[-1], collapse = "\n")
+
+    source = case_when(
+		grepl("Palo Alto PAN-OS", all_desc[i]) ~ "Networking",
+		grepl("Apple products", all_desc[i]) ~ "Apple",
+		grepl("Adobe products", all_desc[i]) ~ "Adobe",
+		grepl("Microsoft products", all_desc[i]) ~ "Microsoft",
+		grepl("Google", all_desc[i]) && !(grepl("Mozilla products", all_desc[i])) ~ "Google",
+		grepl("Mozilla products", all_desc[i]) ~ "Miscellaneous",
+		TRUE ~ "Miscellaneous"
+    )
+    
+    df1$Source_ID[i] <- source
+    df1$Source[i] <- source
+    df1$Product_Type[i] <- source
+
+    #Exploited Parser
+    if(grepl("no reports", df1$Description[i])){
+    		df1$Exploited[i] <- "No"
+
+    } else {
+		df1$Exploited[i] <- "Yes"
+    }
+    
+
+    a_tags_linked = html_nodes(CIShtml_2, ".reference-list div") %>% html_text()
+    #print(impact)
+
+    #find all linked pages with CVE in title of a tag
+    for(a_tag_linked in a_tags_linked){
+      
+      #grepl is equivalent of x in y or contains
+      if (grepl("\\d+-\\d+", a_tag_linked)){
+      #get only substring of individual CVE (possibly use gregexpr)
+      cvematch <- gregexpr("20\\d+-\\d+", a_tags_linked) #Get CVEs even if improperly formatted
+      result <- regmatches(a_tags_linked, cvematch)
+      #get all results per link
+      if(length(result) > 0){
+
+       df1$CVE[i] <- paste0("CVE-", unlist(result), collapse = ",")
+
+	 
+      
+      } else{
+        df1$CVE[i] <- NA
+      }
+      
+  }
+
+
+}
+
+
+}
+
+for(i in seq_along(imp_list)){
+	result = case_when(
+
+		grepl("Government: LOW", imp_list[i]) ~ "LOW",
+		grepl("Government: MEDIUM", imp_list[i]) ~ "MEDIUM",
+		grepl("Government: HIGH", imp_list[i]) && !(grepl("Critical", all_titles[i])) ~ "HIGH",
+		grepl("Critical", all_titles[i]) &&  grepl("Government: HIGH", imp_list[i]) ~ "HIGHEST",
+		TRUE ~ "UNKNOWN"
+		
+	
+	)
+	
+	df1$Impact[i] <- paste(result)
+
+}
+
+for(i in seq_along(all_desc)){
+      action_plan <-  sub(".*We recommend the following actions be taken", "We recommend the following actions be taken", all_desc[i])
+	
+	df1$Action_Plan[i] <-  action_plan
+
+}
+
+
+#writeData(wb, 'New MS-ISAC', unique(df1))
+##Living Document
+if(length(df2) > 0){ #If Sheet 2 is not empty, may be able to delete if
+
+	df2 <- read.xlsx(excel_file, sheet = 'Entered Vul.')
+	writeData(wb, 'Entered Vul.', unique(df2))
+	#Compare new data with data in sheet 2 and only keep unique data
+	if(any(df1[,20] %in% df2[,20])){
+		dff <- anti_join(df1, df2, by = "CVE")
+		#writeData(wb, 'New MS-ISAC', unique(dff))
+		
+
+	}
+}
+#remove old sheet data to prevent duplicate entries on app. run
+removeWorksheet(wb, 'New MS-ISAC')
+addWorksheet(wb, 'New MS-ISAC')
+writeData(wb, 'New MS-ISAC', unique(dff))
+
+
+saveWorkbook(wb, 'CVE_Test-Table-New.xlsx', overwrite = TRUE)
+
+
+##IGNORE
+#The scraper must also prevent the repetition of CVEs (if CVEs are listed in
+#multiple links. Additionally the scraper must prevent the repetition of vuln
+#listed not just within entered sheet but the respective sheet itself
+	##Consider using any(df1[,20] %in% df1[,20])
+df1[is.na(df1)]<-''
+#file <- file.path("Q:", "ISO Program/GRC Uploads/RStudio Data", "CVE_Test-Table-2.xlsx")
+
+
+openXL(wb)
