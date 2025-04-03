@@ -1,0 +1,143 @@
+library(rvest)
+library(tidyverse)
+library(stringr)
+library(openxlsx)
+library(dplyr)
+
+#needs to be by modfied date desc.
+all_vendors <- c("Adobe", "Cisco", "Palo", "Apple")
+all_links <- c()
+all_desc <- c()
+df1 <- data.frame()
+
+
+#GET URL
+base_url <- "https://nvd.nist.gov"
+
+#for(vendor in all_vendors)
+	url <- "https://nvd.nist.gov/vuln/search/results?results_type=overview&query=adobe&search_type=all&form_type=Basic&isCpeNameSearch=false&orderBy=modifiedDate&orderDir=desc"
+	CIShtml <- read_html(url)
+	
+	
+
+	#Source Parser
+	#if(vendor == "Palo"){
+		#source = "Networking"
+	#} else {
+		#source = vendor
+	#}
+
+	links <- html_nodes(CIShtml, "a") %>% html_attr("href")
+	for(link in links){
+	
+		if (grepl("/CVE-\\d+-\\d+", link)){
+			
+			all_links <- append(all_links, link)
+		}
+	}
+
+	#Populate rows in data frame with CVE
+	cvematch <- gregexpr("CVE-\\d+-\\d+", all_links)
+	result <- regmatches(all_links, cvematch)
+		
+	#CREATE DATA FRAME
+	df1 <- data.frame(
+    	Summary = NA,
+    	Description = NA,
+    	Status = NA,
+    	Due_date = NA,
+    	Priority = "Medium",
+    	Source = NA,
+    	Source_type = "Label",
+    	Source_ID = source,
+    	Affected_Programs = "Virginia Housing InfoSec Program",
+    	Assignee = NA,
+    	Business_Owner = NA,
+    	Executive_Sponsor = NA,
+    	Impact = NA,
+    	Effort = "Medium",
+    	Discovered_On = NA,
+    	Closed_On = NA,
+    	Action_Plan = NA,
+    	Members = "Sequoia Lawson (sequoia.lawson@virginiahousing.com),
+      Brie Carter (brittney.carter@virginiahousing.com), Clifton Dickens (clifton.dickens@virginiahousing.com), Melia Hill (melia.hill@virginiahousing.com), Raymond Kline (raymond.kline@virginiahousing.com)",
+    	CVE = paste(unlist(result)),
+    	Departments = NA,
+    	Detection_Method_Source = "Other",
+    	Exploited = NA,
+    	Product_Type = NA,
+    	stringsAsFactors = FALSE
+
+
+
+)
+	
+
+#}
+
+#PARSE THROUGH LINKED PAGE
+for(i in seq_along(all_links)){
+	linked_url <- paste0(base_url, all_links[i])
+	CIShtml_2 <- read_html(linked_url)
+	
+	#Desc Parser
+	desc <- html_nodes(CIShtml_2, '[data-testid = "vuln-description"]') %>% html_text()
+	df1$Description[i] <- paste(unlist(desc))
+	
+	#Date Parser
+	date = html_node(CIShtml_2, '[data-testid = "vuln-published-on"]') %>% html_text()
+	df1$Discovered_On[i] <- paste(unlist(date))
+	print(date)
+    
+
+	#Impact Parser
+	impact_label_NIST = html_node(CIShtml_2, '[data-testid = "vuln-cvss3-panel-score"]') %>% html_text()
+	impact_label_CNA = html_node(CIShtml_2, '[data-testid = "vuln-cvss3-cna-panel-score"]') %>% html_text()
+
+	if(!(is.na(impact_label_NIST))) {
+		
+		impact = case_when(
+			grepl("LOW", impact_label_NIST) ~ "Low",
+			grepl("MEDIUM", impact_label_NIST) ~ "Medium",
+			grepl("HIGH", impact_label_NIST) ~ "High",
+			grepl("CRITICAL", impact_label_NIST) ~ "Highest",
+			TRUE ~ "Unknown"
+
+		)
+	} else {
+		
+		impact = case_when(
+			grepl("LOW", impact_label_CNA) ~ "Low",
+			grepl("MEDIUM", impact_label_CNA) ~ "Medium",
+			grepl("HIGH", impact_label_CNA) ~ "High",
+			grepl("CRITICAL", impact_label_CNA) ~ "Highest",
+			TRUE ~ "Unknown"
+
+		)		
+
+	}
+	df1$Impact[i] <- impact
+	
+	#Exploited Parser	
+	exploit = html_node(CIShtml_2, "#vulnCisaExploit") %>% html_text()
+	
+	if(is.na(exploit)){
+		df1$Exploited[i] <- "No"
+
+	} else {
+		df1$Exploited[i] <- "Yes"
+	}
+
+
+	
+}
+
+
+
+#TESTING
+
+#IGNORE
+#Should grab titles, this may take a minute
+#Additionally should parse through 1st page of each vendor
+##When done... implement save functionality and take out all entries we are tracking
+
