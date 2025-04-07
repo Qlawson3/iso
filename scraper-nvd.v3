@@ -1,0 +1,177 @@
+library(rvest)
+library(tidyverse)
+library(stringr)
+library(openxlsx)
+library(dplyr)
+
+
+excel_file <- file.path("C:", "Users/lawsonsd/Documents", "CVE_Test-Table-New.xlsx")
+wb <- loadWorkbook(excel_file)
+
+addWorksheet(wb, 'New NVD')
+
+#needs to be by modfied date desc.
+all_vendors <- c("Adobe", "Cisco", "Apple", "Mozilla", "Microsoft")
+source <- c()
+all_links <- c()
+all_desc <- c()
+all_cve <- c()
+all_titles <- c()
+df1 <- data.frame()
+
+
+#GET URL
+base_url_nist <- "https://nvd.nist.gov"
+base_url_cve <- "https://cveawg.mitre.org/api/cve/"
+
+for(vendor in all_vendors) {
+	
+	url <- paste0("https://nvd.nist.gov/vuln/search/results?results_type=overview&query=", vendor, "&search_type=all&form_type=Basic&isCpeNameSearch=false&orderBy=publishDate&orderDir=desc")
+	CIShtml <- read_html(url)
+	
+	
+
+	links <- html_nodes(CIShtml, "a") %>% html_attr("href")
+	for(link in links){
+	
+		if (grepl("/CVE-\\d+-\\d+", link)){
+			all_links <- append(all_links, link)
+			source <- append(source, vendor)
+		}
+	}
+
+	#Populate rows in data frame with CVE
+	cvematch <- gregexpr("CVE-\\d+-\\d+", all_links)
+	result <- regmatches(all_links, cvematch)
+	all_cve <- append(all_cve, result)
+	
+	#CREATE DATA FRAME
+	df1 <- data.frame(
+    	Summary = NA,
+    	Description = NA,
+    	Status = NA,
+    	Due_date = NA,
+    	Priority = "Medium",
+    	Source = NA,
+    	Source_type = "Label",
+    	Source_ID = NA,
+    	Affected_Programs = "Virginia Housing InfoSec Program",
+    	Assignee = NA,
+    	Business_Owner = NA,
+    	Executive_Sponsor = NA,
+    	Impact = NA,
+    	Effort = "Medium",
+    	Discovered_On = NA,
+    	Closed_On = NA,
+    	Action_Plan = NA,
+    	Members = "Sequoia Lawson (sequoia.lawson@virginiahousing.com),
+      Brie Carter (brittney.carter@virginiahousing.com), Clifton Dickens (clifton.dickens@virginiahousing.com), Melia Hill (melia.hill@virginiahousing.com), Raymond Kline (raymond.kline@virginiahousing.com)",
+    	CVE = paste(unlist(result)),
+    	Departments = NA,
+    	Detection_Method_Source = "Other",
+    	Exploited = NA,
+    	Product_Type = NA,
+    	stringsAsFactors = FALSE
+
+
+
+)
+	
+}
+
+
+#PARSE THROUGH LINKED PAGE
+for(i in seq_along(all_links)){
+	
+	linked_url <- paste0(base_url_nist, all_links[i])
+	CIShtml_2 <- read_html(linked_url)
+	
+	#Desc Parser
+	desc <- html_nodes(CIShtml_2, '[data-testid = "vuln-description"]') %>% html_text()
+	all_desc <- append(all_desc, desc)
+	df1$Description[i] <- paste(unlist(desc))
+	
+	#Date Parser
+	date = html_node(CIShtml_2, '[data-testid = "vuln-published-on"]') %>% html_text()
+	df1$Discovered_On[i] <- paste(unlist(date))
+	
+    	#Source Parser
+	df1$Source_ID[i] <- source[i]
+	if(grepl("Cisco", source[i]) | grepl("Mozilla", source[i])){
+		df1$Source_ID[i] <- "Networking"
+	}
+
+	#Impact Parser
+	impact_label_NIST = html_node(CIShtml_2, '[data-testid = "vuln-cvss3-panel-score"]') %>% html_text()
+	impact_label_CNA = html_node(CIShtml_2, '[data-testid = "vuln-cvss3-cna-panel-score"]') %>% html_text()
+
+	if(!(is.na(impact_label_NIST))) {
+		
+		impact = case_when(
+			grepl("LOW", impact_label_NIST) ~ "Low",
+			grepl("MEDIUM", impact_label_NIST) ~ "Medium",
+			grepl("HIGH", impact_label_NIST) ~ "High",
+			grepl("CRITICAL", impact_label_NIST) ~ "Highest",
+			TRUE ~ "Unknown"
+
+		)
+	} else {
+		
+		impact = case_when(
+			grepl("LOW", impact_label_CNA) ~ "Low",
+			grepl("MEDIUM", impact_label_CNA) ~ "Medium",
+			grepl("HIGH", impact_label_CNA) ~ "High",
+			grepl("CRITICAL", impact_label_CNA) ~ "Highest",
+			TRUE ~ "Unknown"
+
+		)		
+
+	}
+	df1$Impact[i] <- impact
+	
+	#Exploited Parser	
+	exploit = html_node(CIShtml_2, "#vulnCisaExploit") %>% html_text()
+	
+	if(is.na(exploit)){
+		df1$Exploited[i] <- "No"
+
+	} else {
+		df1$Exploited[i] <- "Yes"
+	}	
+	
+}
+
+for(i in seq_along(df1$CVE)){
+
+	linked_cve_url <- paste0(base_url_cve, df1$CVE[i])
+	CIShtml_3 <- read_html(linked_cve_url)
+	
+	#Title Parser
+	title_orig = CIShtml_3 %>% html_text()
+	title_remove = sub('\"title\":\"CISA ADP Vulnrichment.*', '', title_orig)
+	title_clean = sub('.*\"title\":\"', '', title_remove)
+	
+	title_final = sub('\".*', '', title_clean)
+	
+	if(nchar(title_final) < 2){
+		title_clean <- sub('.*description":"', '', title_remove)
+		title_final <- sub('".*', '', title_clean)
+	}
+	df1$Summary[i] <- title_final
+
+}
+
+
+
+
+#Import all values
+
+#Save to Excel
+writeData(wb, 'New NVD', unique(df1))
+openXL(wb)
+#TESTING
+
+#IGNORE
+#Should grab titles, this may take a minute - done
+#Additionally should parse through 1st page of each vendor
+##When done... implement save functionality and take out all entries we are tracking
