@@ -18,7 +18,8 @@ all_desc <- c()
 all_cve <- c()
 all_titles <- c()
 df1 <- data.frame()
-
+df2 <- data.frame()
+dff <- data.frame()
 
 #GET URL
 base_url_nist <- "https://nvd.nist.gov"
@@ -46,7 +47,39 @@ for(vendor in all_vendors) {
 	all_cve <- append(all_cve, result)
 	
 	#CREATE DATA FRAME
+
+	df2 <- data.frame(
+	Key = NA,
+	Date_Entered = NA,
+	Summary = NA,
+    	Description = NA,
+    	Status = NA,
+    	Due_date = NA,
+    	Priority = NA,
+    	Source = NA,
+    	Source_type = NA,
+    	Source_ID = NA,
+    	Affected_Programs = NA,
+    	Assignee = NA,
+    	Business_Owner = NA,
+    	Executive_Sponsor = NA,
+    	Impact = NA,
+    	Effort = NA,
+    	Discovered_On = NA,
+    	Closed_On = NA,
+    	Action_Plan = NA,
+    	Members = NA,
+    	CVE = NA,
+    	Departments = NA,
+    	Detection_Method_Source = NA,
+    	Exploited = NA,
+    	Product_Type = NA,
+    	stringsAsFactors = FALSE
+
+	)
+
 	df1 <- data.frame(
+	Key = NA,
     	Summary = NA,
     	Description = NA,
     	Status = NA,
@@ -75,7 +108,7 @@ for(vendor in all_vendors) {
 
 
 
-)
+	)
 	
 }
 
@@ -95,10 +128,12 @@ for(i in seq_along(all_links)){
 	date = html_node(CIShtml_2, '[data-testid = "vuln-published-on"]') %>% html_text()
 	df1$Discovered_On[i] <- paste(unlist(date))
 	
-    	#Source Parser
+    	#Source/Product Parser
 	df1$Source_ID[i] <- source[i]
+	df1$Product_Type[i] <- source[i]
 	if(grepl("Cisco", source[i]) | grepl("Mozilla", source[i])){
 		df1$Source_ID[i] <- "Networking"
+		df1$Product_Type[i] <- "Networking"
 	}
 
 	#Impact Parser
@@ -141,6 +176,7 @@ for(i in seq_along(all_links)){
 	
 }
 
+#PARSE THROUGH LINKED CVE PAGE
 for(i in seq_along(df1$CVE)){
 
 	linked_cve_url <- paste0(base_url_cve, df1$CVE[i])
@@ -162,16 +198,31 @@ for(i in seq_along(df1$CVE)){
 }
 
 
+writeData(wb, 'New NVD', unique(df1))
 
+#Living Document
+if(length(df2) > 0){ #If Sheet 2 is not empty, may be able to delete if
 
-#Import all values
+	df2 <- read.xlsx(excel_file, sheet = 'Entered Vul.')
+	writeData(wb, 'Entered Vul.', unique(df2))
+	#Compare new data with data in sheet 2 and only keep unique data
+	if(any(df1[,20] %in% df2[,20])){
+		dff <- anti_join(df1, df2, by = "CVE")
+		
+		
+
+	}
+}
+
+#remove old sheet data to prevent duplicate entries on app. run
+removeWorksheet(wb, 'New NVD')
+addWorksheet(wb, 'New NVD')
+writeData(wb, 'New NVD', unique(dff))
 
 #Save to Excel
-writeData(wb, 'New NVD', unique(df1))
-openXL(wb)
-#TESTING
+saveWorkbook(wb, 'CVE_Test-Table-New.xlsx', overwrite = TRUE)
+#openXL(wb)
+
 
 #IGNORE
-#Should grab titles, this may take a minute - done
-#Additionally should parse through 1st page of each vendor
 ##When done... implement save functionality and take out all entries we are tracking
